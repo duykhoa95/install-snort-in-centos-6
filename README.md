@@ -1,0 +1,1 @@
+# install-snort-in-centos-6
