@@ -1,0 +1,175 @@
+﻿-----------------------------------------------------------
+ĐỀ TÀI: XÂY DỰNG, THIẾT KẾ FIREWALL - IDS TRÊN LINUX
+-----------------------------------------------------------
+VIDEO 4: Cài đặt, cấu hình Snort (IDS)
+1. Cài đặt Package
+# yum install -y gcc flex bison zlib* libxml2 libpcap* pcre* tcpdump git libtool curl man make
+# yum groupinstall - y "Development Tools"
+
+2. Chuẩn bị các file cài đặt:
+- libpcap-1.8.0.tar.gz
+	# tar -xzvf libpcap-1.8.0.tar.gz
+	# cd libpcap-1.8.0
+	#./configure
+	# make && make install
+- libdnet-1.12.tgz
+	# tar -xzvf libdnet-1.12.tgz
+	# cd libdnet-1.12
+	#./configure
+- libdnet-1.12-6.el6.x86_64.rpm
+	# rpm -ivh libdnet-1.12-6.el6.x86_64.rpm
+- libdnet-devel-1.12-6.el6.x86_64.rpm
+	# rpm -ivh libdnet-devel-1.12-6.el6.x86_64.rpm
+
+3. Download Snort (Lưu tại Desktop)
+- daq-2.0.6.tar.gz
+https://snort.org/downloads/snort/daq-2.0.6.tar.gz
+- snort-2.9.8.3.tar.gz
+https://snort.org/downloads/snort/snort-2.9.8.3.tar.gz
+- community-rules.tar.gz
+https://snort.org/downloads/community/community-rules.tar.gz
+- snortrules-snapshot-2983.tar.gz (Registered)
+https://snort.org/downloads/registered/snortrules-snapshot-2983.tar.gz
+
+3. Cài đặt Snort
+# cd /usr/local/src
+# tar -xzvf /root/Desktop/daq-2.0.6.tar.gz
+# tar -xzvf /root/Desktop/snort-2.9.8.3.tar.gz
+
+# cd daq-2.0.6
+# ./configure
+# make && make install
+
+# cd /usr/local/src/snort-2.9.8.3
+# ./configure --enable-sourcefire
+# make && make install
+
+# cd /etc
+# mkdir snort
+# cd snort 
+# cp /usr/local/src/snort-2.9.8.3/etc/* .v
+# tar -zvxf /root/Desktop/snortrules-snapshot-2983.tar.gz
+# touch /etc/snort/rules/white_list.rules
+
+# touch /etc/snort/rules/black_list.rules
+
+4. Tạo user, group, cấp quyền
+# groupadd -g 40000 snort
+# useradd snort -u 40000 -d /var/log/snort -s /sbin/nologin -c SNORT_IDS -g snort
+# cd /etc/snort
+# chown -R snort:snort *
+# chown -R snort:snort /var/log/snort
+
+5. Cấu hình snort
+# vi /etc/snort/snort.conf
+ipvar HOME_NET 192.168.1.0/24 	# Mạng cần theo dõi
+ipvar EXTERNAL_NET !$HOME_NET
+
+ 	# Tất cả các mạng trừ mạng cần theo dõi
+
+var RULE_PATH /etc/snort/rules
+var SO_RULE_PATH /etc/snort/so_rules
+var PREPROC_RULE_PATH /etc/snort/preproc_rules
+
+
+var WHITE_LIST_PATH /etc/snort/rulesse
+var BLACK_LIST_PATH /etc/snort/rules
+
+6. Thay đổi quyền sở hữu thư mục, tệp tin
+# cd /usr/local/src
+# chown -R snort:snort daq-2.0.6
+# chown -R 700 daq-2.0.6/
+
+# chown -R snort:snort snort-2.9.8.3/
+# chown -R 700 snort-2.9.8.3/
+
+# chown -R snort:snort snort_dynamicsrc/
+# chown -R 700 snort_dynamicsrc/
+
+7. Start snort
+# cd /usr/local/src/snort-2.9.8.3/rpm/
+# cp snortd /etc/init.d/snortd
+# chmod 700 /etc/init.d/snortd
+# cp /usr/local/src/snort-2.9.8.3/rpm/snort.sysconfig /etc/sysconfig/snort
+# chkconfig --add /etc/init.d/snortd
+# chkconfig snortd on
+
+8. Tạo Symbol Link
+# cd /usr/sbin
+# ln -s /usr/local/bin/snort snort
+
+Nếu ko có directory /var/log/snort
+# cd /var/log
+# mkdir snort
+
+# chmod 700 snort
+# chown -R snort:snort snort
+
+# cd /usr/local/lib
+# chown -R snort:snort snort*
+# chown -R snort:snort snort_dynamic*
+# chown -R snort:snort pkgconfig
+# chown -R 700 snort*
+# chown -R 700 pkgconfig
+
+# cd /usr/local/bin
+# chown -R snort:snort daq-modules-config
+# chown -R snort:snort u2*
+# chown -R 755 daq-modules-config 
+# chown 700 u2*
+
+# cd /etc
+# chown -R snort:snort snort
+# chown -R 700 snort
+
+
+9. Test Snort
+# cd /usr/local/bin
+# ./snort -T -i eht0 -u snort -g snort -c /etc/snort/snort.conf
+
+Một số lỗi hay gặp:
+ERROR: snort.conf(253) Could not stat dynamic module path
+"/usr/local/lib/snort_dynamicrules": No such file or directory.
+Fatal Error, Quitting.
+===>> Solution: Tạo thư mực dynamicrules <<===
+# mkdir -p /usr/local/lib/snort_dynamicrules
+# chown -R snort:snort /usr/local/lib/snort_dynamicrules
+# chown -R 700 /usr/local/lib/snort_dynamicrules
+
+
+
+Nếu xuất hiện thông báo:
+
+Snort successfully validated the configuration!
+
+Snort exiting
+
+=> Là thành công
+
+* Chạy snort và thêm tùy chọn lưu log
+# cd /usr/local/bin
+# ./snort -A fast -b -D -d -i eht0 -u snort -g snort -c /etc/snort/snort.conf -l /var/log/snort
+
+# ls -l /var/log/snort
+
+
+10. Add rule
+# service snortd start/stop/restart
+# gedit /etc/snort/rules/local.rules
+alert icmp any any -> $HOME_NET any (msg:"Co Ping"; sid:1000003;rev:1;)
+alert tcp any any -> any 22 (msg:"ssh connection=>Attempt"; sid:1000004;)
+alert tcp any any -> $HOME_NET 80 (msg:"HTTP Test!!!"; classtype:not-suspicious; sid:1000005;  rev:1;)
+
+*Xem
+# snort -c /etc/snort/snort.conf -i eth0 -A console
+# snort -vde
+
+**Rules khác
+alert icmp any any -> $HOME_NET 81 (msg:"Scanning Port 81"; sid:1000001;rev:1;)
+alert tcp any any -> $HOME_NET 22 (msg:"Scanning Port 22"; sid:1000002;rev:1;)
+alert icmp any any -> any any (msg:"UDP Tesing Rule"; sid:1000006;rev:1;)
+
+
+*Xem Log Cảnh báo của Snort
+# cd /var/log/snort
+# snort -r snort.log.xxx
